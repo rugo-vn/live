@@ -1,0 +1,33 @@
+{
+  "name": "@rugo-vn/live",
+  "version": "1.0.0-beta.0",
+  "description": "Live bundle for Rugo.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha",
+    "publish:beta": "npm publish --access public --tag beta",
+    "publish:release": "npm publish --access public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rugo-vn/live.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rugo-vn/live/issues"
+  },
+  "homepage": "https://github.com/rugo-vn/live#readme",
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "ramda": "^0.29.0",
+    "rimraf": "^5.0.0",
+    "vite": "^4.3.3"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  }
+}
