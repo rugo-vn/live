@@ -1,3 +1,6 @@
+import chokidar from 'chokidar';
+import WebSocket from 'faye-websocket';
+import { createServer } from 'node:http';
 import { flatten, mergeDeepLeft } from 'ramda';
 import { dirname, join, parse, resolve } from 'node:path';
 import {
@@ -10,7 +13,8 @@ import {
 } from 'node:fs';
 import { rimraf } from 'rimraf';
 import { build as buildVite } from 'vite';
-import chokidar from 'chokidar';
+import { createTimer } from './timer.js';
+import { WAIT, WATCHER_PORT } from './constants.js';
 
 export function deepScanDir(dir) {
   const ls = readdirSync(dir);
@@ -103,23 +107,73 @@ function watch(live, fn) {
     await build(live);
 
     const { srcPath, publicPath } = live.config;
+    const timer = createTimer();
 
+    // web socket
+    const server = createServer();
+    let clients = [];
+    server.addListener('upgrade', function (request, socket, head) {
+      const ws = new WebSocket(request, socket, head);
+      ws.onopen = function () {
+        ws.send('connected');
+      };
+
+      if (WAIT > 0) {
+        (function () {
+          const wssend = ws.send;
+          let waitTimeout;
+          ws.send = function () {
+            const args = arguments;
+            if (waitTimeout) clearTimeout(waitTimeout);
+            waitTimeout = setTimeout(function () {
+              wssend.apply(ws, args);
+            }, WAIT);
+          };
+        })();
+      }
+
+      ws.onclose = function () {
+        clients = clients.filter(function (x) {
+          return x !== ws;
+        });
+      };
+
+      clients.push(ws);
+    });
+
+    server.listen(WATCHER_PORT);
+    live.server = server;
+
+    // watcher
     const watcher = chokidar.watch([srcPath, publicPath], {
       ignoreInitial: true,
     });
-    const delayCall = createDelayCall(100);
+    const delayCall = createDelayCall(WAIT);
 
     watcher.on('all', () => {
       delayCall(async () => {
+        timer.tick();
         await build(live);
-        await fn();
+        timer.tick(async (dr) => {
+          // reload
+          for (let ws of clients) if (ws) ws.send('reload');
+
+          // event
+          await fn(dr);
+        });
       });
     });
 
     watcher.on('ready', () => {
-      resolve(watcher);
+      live.watcher = watcher;
+      resolve();
     });
   });
+}
+
+async function close({ watcher, server }) {
+  if (watcher) await watcher.close();
+  if (server) await server.close();
 }
 
 export function goLive(config) {
@@ -131,6 +185,8 @@ export function goLive(config) {
     static: 'statics',
     view: 'views',
   });
+  live.watcher = null;
+  live.server = null;
 
   if (!live.config.root) throw new Error('Live must have root');
 
@@ -160,6 +216,7 @@ export function goLive(config) {
   // before return
   live.build = () => build(live);
   live.watch = (fn) => watch(live, fn);
+  live.close = () => close(live);
 
   return live;
 }

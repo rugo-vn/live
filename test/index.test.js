@@ -1,8 +1,10 @@
+import WebSocket from 'faye-websocket';
 import { expect } from 'chai';
 import { rimraf } from 'rimraf';
 import { deepScanDir, goLive } from '../src/index.js';
 import { createTimer } from '../src/timer.js';
 import { writeFileSync } from 'node:fs';
+import { WATCHER_PORT } from '../src/constants.js';
 
 describe('Live test', function () {
   it('should clean', async () => {
@@ -33,20 +35,18 @@ describe('Live test', function () {
   });
 
   it('should watch', async () => {
-    const timer = createTimer();
     const live = goLive({
       root: './test/fixtures',
     });
 
     let counter = 0;
-    timer.tick();
+    let client;
 
     await new Promise(async (resolve) => {
-      const watcher = await live.watch(async () => {
-        timer.tick((dr) => console.log(`Build time: ${dr}ms`));
+      await live.watch(async (dr) => {
+        console.log(`Build time: ${dr}ms`);
 
         if (counter) {
-          await watcher.close();
           return resolve();
         }
 
@@ -57,8 +57,16 @@ describe('Live test', function () {
         counter++;
       });
 
+      client = new WebSocket.Client(`ws://localhost:${WATCHER_PORT}`);
+      client.on('message', (event) => {
+        console.log(event.data);
+      });
+
       writeFileSync('./test/fixtures/src/new-added.ejs', 'new sample ejs');
     });
+
+    await client.close();
+    await live.close();
 
     rimraf.sync('./test/fixtures/src/new-added.ejs');
     rimraf.sync('./test/fixtures/src/new-added.html');
