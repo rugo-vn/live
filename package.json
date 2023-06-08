@@ -1,9 +1,12 @@
 {
   "name": "@rugo-vn/live",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Live bundle for Rugo.",
   "main": "src/index.js",
   "type": "module",
+  "bin": {
+    "live": "src/live.js"
+  },
   "scripts": {
     "test": "mocha",
     "publish:beta": "npm publish --access public --tag beta",
@@ -22,13 +25,15 @@
   "homepage": "https://github.com/rugo-vn/live#readme",
   "dependencies": {
     "chokidar": "^3.5.3",
+    "colors": "^1.4.0",
     "faye-websocket": "^0.11.4",
+    "koa": "^2.14.2",
     "ramda": "^0.29.0",
-    "rimraf": "^5.0.0",
-    "vite": "^4.3.3"
+    "rimraf": "^5.0.0"
   },
   "devDependencies": {
     "chai": "^4.3.7",
-    "mocha": "^10.2.0"
+    "mocha": "^10.2.0",
+    "vite": "^4.3.9"
   }
 }

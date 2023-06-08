@@ -3,17 +3,18 @@ import { expect } from 'chai';
 import { rimraf } from 'rimraf';
 import { deepScanDir, goLive } from '../src/index.js';
 import { createTimer } from '../src/timer.js';
-import { writeFileSync } from 'node:fs';
+import { cpSync, writeFileSync } from 'node:fs';
 import { WATCHER_PORT } from '../src/constants.js';
 
 describe('Live test', function () {
   it('should clean', async () => {
-    rimraf.sync('./test/fixtures/dist');
+    rimraf.sync('./test/fixtures');
+    cpSync('./examples/test', './test/fixtures', { recursive: true });
   });
 
   it('should build', async () => {
     const timer = createTimer();
-    const live = goLive({
+    const live = await goLive({
       root: './test/fixtures',
     });
 
@@ -35,7 +36,7 @@ describe('Live test', function () {
   });
 
   it('should watch', async () => {
-    const live = goLive({
+    const live = await goLive({
       root: './test/fixtures',
     });
 

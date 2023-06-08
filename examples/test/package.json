@@ -1,0 +1,20 @@
+{
+  "name": "simple",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "live",
+    "build": "live --build"
+  },
+  "devDependencies": {
+    "@rugo-vn/live": "../../",
+    "vue": "^3.3.4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vitejs/plugin-vue": "^4.2.3"
+  }
+}

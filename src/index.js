@@ -12,7 +12,7 @@ import {
   statSync,
 } from 'node:fs';
 import { rimraf } from 'rimraf';
-import { build as buildVite } from 'vite';
+import { build as buildVite, loadConfigFromFile } from 'vite';
 import { createTimer } from './timer.js';
 import { WAIT, WATCHER_PORT } from './constants.js';
 
@@ -47,7 +47,7 @@ function matchExt(e) {
   return (p) => new RegExp(`${e}$`, 'gi').test(p);
 }
 
-async function build(live) {
+async function build(live, watch = false) {
   const { srcPath, dstPath, staticPath, viewPath, publicPath } = live.config;
 
   // clean dst
@@ -56,10 +56,11 @@ async function build(live) {
   existsSync(staticPath) && rimraf.sync(staticPath);
   existsSync(viewPath) && rimraf.sync(viewPath);
 
-  if (existsSync(publicPath))
-    cpSync(publicPath, staticPath, { recursive: true });
-  else mkdirSync(staticPath);
+  // if (existsSync(publicPath))
+  //   cpSync(publicPath, staticPath, { recursive: true });
+  // else mkdirSync(staticPath);
 
+  mkdirSync(staticPath);
   mkdirSync(viewPath);
 
   // exit when not have source
@@ -87,11 +88,31 @@ async function build(live) {
         rollupOptions: {
           input: inputBuilds,
         },
+        ...(watch
+          ? {
+              watch: {
+                buildDelay: WAIT,
+              },
+            }
+          : {}),
       },
     },
     live.vite
   );
-  await buildVite(viteConfig);
+
+  const watcher = await new Promise(async (resolve) => {
+    const watcher = await buildVite(viteConfig);
+    let isResolve = false;
+
+    if (!watch) return resolve(watcher);
+
+    watcher.on('event', (event) => {
+      if (event.code === 'BUNDLE_END' && !isResolve) {
+        resolve(watcher);
+        isResolve = true;
+      }
+    });
+  });
 
   // build .ejs.html
   const semiLs = ls.filter(matchExt('.ejs.html'));
@@ -100,24 +121,24 @@ async function build(live) {
     mkdirSync(dirname(entry), { recursive: true });
     renameSync(join(staticPath, name), join(dirname(entry), parse(entry).name));
   }
+
+  return watcher;
 }
 
 function watch(live, fn) {
   return new Promise(async (resolve) => {
-    await build(live);
-
     const { srcPath, publicPath } = live.config;
     const timer = createTimer();
 
     // web socket
     const server = createServer();
     let clients = [];
+
     server.addListener('upgrade', function (request, socket, head) {
       const ws = new WebSocket(request, socket, head);
       ws.onopen = function () {
         ws.send('connected');
       };
-
       if (WAIT > 0) {
         (function () {
           const wssend = ws.send;
@@ -131,33 +152,46 @@ function watch(live, fn) {
           };
         })();
       }
-
       ws.onclose = function () {
         clients = clients.filter(function (x) {
           return x !== ws;
         });
       };
-
       clients.push(ws);
     });
 
     server.listen(WATCHER_PORT);
     live.server = server;
 
+    // build and watch
+    timer.tick();
+    live.viteWatcher = await build(live, true);
+    timer.tick(async (dr) => {
+      // reload
+      for (let ws of clients) if (ws) ws.send('reload');
+      // event
+      await fn(dr);
+    });
+
     // watcher
     const watcher = chokidar.watch([srcPath, publicPath], {
       ignoreInitial: true,
     });
+
     const delayCall = createDelayCall(WAIT);
 
-    watcher.on('all', () => {
+    watcher.on('all', async () => {
+      if (live.viteWatcher) {
+        await live.viteWatcher.close();
+        live.viteWatcher = null;
+      }
+
       delayCall(async () => {
         timer.tick();
-        await build(live);
+        live.viteWatcher = await build(live, true);
         timer.tick(async (dr) => {
           // reload
           for (let ws of clients) if (ws) ws.send('reload');
-
           // event
           await fn(dr);
         });
@@ -171,12 +205,14 @@ function watch(live, fn) {
   });
 }
 
-async function close({ watcher, server }) {
+async function close({ watcher, server, viteWatcher }) {
   if (watcher) await watcher.close();
   if (server) await server.close();
+  if (viteWatcher) await viteWatcher.close();
 }
 
-export function goLive(config) {
+export async function goLive(config) {
+  // config
   const live = {};
   live.config = mergeDeepLeft(config, {
     src: 'src',
@@ -202,7 +238,13 @@ export function goLive(config) {
     live.config
   );
 
-  live.vite = {
+  // vite
+  let userConfig = {};
+  const userConfigPath = join(rootPath, 'vite.config.js');
+  if (existsSync(userConfigPath))
+    userConfig = (await loadConfigFromFile({}, userConfigPath)).config;
+
+  live.vite = mergeDeepLeft(userConfig, {
     mode: 'development',
     root: srcPath,
     publicDir: publicPath,
@@ -211,11 +253,11 @@ export function goLive(config) {
       emptyOutDir: true,
       minify: false,
     },
-  };
+  });
 
   // before return
   live.build = () => build(live);
-  live.watch = (fn) => watch(live, fn);
+  live.watch = (fn = new Function()) => watch(live, fn);
   live.close = () => close(live);
 
   return live;

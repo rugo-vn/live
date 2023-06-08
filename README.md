@@ -34,6 +34,34 @@ live.watch();
 
 It will scan /src and /public to build.
 
+## Vite Project
+
+Build your own Rugo + Vite project.
+
+```bash
+cd <your-project>
+npm init -y
+npm install -D vite
+npm install -D @rugo-vn/live
+```
+
+Update `package.json`
+
+```json
+{
+  "scripts": {
+    "dev": "live",
+    "build": "live --build"
+  }
+}
+```
+
+Create `vite.config.js`
+
+```js
+
+```
+
 ## License
 
 MIT.
