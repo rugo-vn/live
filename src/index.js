@@ -12,9 +12,9 @@ import {
   statSync,
 } from 'node:fs';
 import { rimraf } from 'rimraf';
-import { build as buildVite, loadConfigFromFile } from 'vite';
+import { build as buildVite, loadConfigFromFile, loadEnv } from 'vite';
 import { createTimer } from './timer.js';
-import { WAIT, WATCHER_PORT } from './constants.js';
+import { ENV_PREFIX, WAIT, WATCHER_PORT } from './constants.js';
 
 export function deepScanDir(dir) {
   const ls = readdirSync(dir);
@@ -253,6 +253,8 @@ export async function goLive(config) {
       emptyOutDir: true,
       minify: false,
     },
+    envDir: rootPath,
+    envPrefix: ENV_PREFIX,
   });
 
   // before return

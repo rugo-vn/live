@@ -23,7 +23,7 @@ describe('Live test', function () {
     timer.tick((dr) => console.log(`Build time: ${dr}ms`));
 
     const ls = deepScanDir('./test/fixtures/dist');
-    expect(ls).to.has.members([
+    expect(ls).to.include.members([
       'statics/img-from-public.png',
       'statics/index.html',
       'statics/parent/inside.html',
@@ -73,7 +73,7 @@ describe('Live test', function () {
     rimraf.sync('./test/fixtures/src/new-added.html');
 
     const ls = deepScanDir('./test/fixtures/dist');
-    expect(ls).to.has.members([
+    expect(ls).to.include.members([
       'statics/img-from-public.png',
       'statics/index.html',
       'statics/new-added.html',

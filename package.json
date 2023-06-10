@@ -1,6 +1,6 @@
 {
   "name": "@rugo-vn/live",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "description": "Live bundle for Rugo.",
   "main": "src/index.js",
   "type": "module",
